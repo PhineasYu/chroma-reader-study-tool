@@ -328,8 +328,8 @@ function ReaderPage() {
         </section>
       </div>
 
-      <main className="mx-auto max-w-[680px] px-6 pb-32 pt-8 md:ml-36 md:mr-0 md:max-w-[560px] md:pt-28 lg:ml-52 lg:max-w-[680px]">
-        <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
+      <main className="mx-auto max-w-[850px] px-6 pb-32 pt-8 md:max-w-[700px] md:pl-36 md:pt-28 lg:max-w-[850px] lg:pl-52">
+        <h1 className="mb-4 text-center font-serif text-3xl font-semibold tracking-tight">
           {data?.doc.title ?? "Untitled"}
         </h1>
 
@@ -351,7 +351,7 @@ function ReaderPage() {
           )}
         </div>
 
-        <div ref={bodyRef} className="font-serif text-lg" style={{ lineHeight: 2 }}>
+        <div ref={bodyRef} className="text-center font-serif text-lg" style={{ lineHeight: 2 }}>
           {segments.map((seg, i) => {
             const color = colorOf(seg);
             const isSelected = i === selected;
