@@ -273,7 +273,7 @@ function ReaderPage() {
 
       {/* Fixed left progress sidebar — stays visible while scrolling */}
       <aside
-        className="no-print fixed left-0 top-0 z-10 hidden h-screen w-40 flex-col border-r border-border bg-background pt-14 md:flex lg:w-52"
+        className="no-print fixed left-0 top-0 z-10 hidden h-screen w-36 flex-col border-r border-border bg-background pt-14 md:flex lg:w-52"
         aria-label="Document review progress"
       >
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4 lg:p-5">
