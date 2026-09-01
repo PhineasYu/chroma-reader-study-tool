@@ -1,8 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { splitSentences } from "@/lib/colors";
+import { ThemeToggle } from "@/components/theme-toggle";
+
+export const SAMPLE_DOC_ID = "11111111-1111-4111-8111-111111111111";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -69,12 +72,44 @@ function ImportPage() {
 
   return (
     <main className="mx-auto max-w-[680px] px-6 py-20 font-serif">
-      <header className="mb-12 text-center">
+      <div className="mb-8 flex items-center justify-end gap-2">
+        <Link
+          to="/library"
+          className="rounded-md border border-border px-3 py-1 font-sans text-xs text-muted-foreground hover:text-foreground"
+        >
+          Library
+        </Link>
+        <ThemeToggle />
+      </div>
+
+      <header className="mb-8 text-center">
         <h1 className="text-4xl font-semibold tracking-tight">Chroma Reader</h1>
         <p className="mt-3 text-muted-foreground">
           Paste a long text, then color-code every sentence by how well you know it.
         </p>
       </header>
+
+      <Link
+        to="/read/$docId"
+        params={{ docId: SAMPLE_DOC_ID }}
+        className="mb-10 block rounded-lg border border-border bg-card px-5 py-4 transition-colors hover:border-ring"
+      >
+        <p className="font-sans text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          Start here — no paste needed
+        </p>
+        <p className="mt-1 text-xl font-semibold tracking-tight">
+          Why Studying Feels Easier Than It Is
+        </p>
+        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted">
+          <span className="w-[42%] bg-hl-green-strong" />
+          <span className="w-[25%] bg-hl-red-strong" />
+          <span className="w-[25%] bg-hl-blue-strong" />
+          <span className="w-[8%] bg-hl-gray-strong" />
+        </div>
+        <p className="mt-2 font-sans text-xs text-muted-foreground">
+          A sample reading, already color-coded. Open it and press 1–5 to make it yours.
+        </p>
+      </Link>
 
       <div className="space-y-6">
         <div>

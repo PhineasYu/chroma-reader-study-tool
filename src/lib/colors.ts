@@ -13,12 +13,15 @@ export const COLORS: Array<{
 ];
 
 export const HIGHLIGHT_CLASS: Record<ColorKey, string> = {
-  green: "bg-hl-green",
-  amber: "bg-hl-amber",
-  red: "bg-hl-red",
-  blue: "bg-hl-blue",
-  gray: "bg-hl-gray",
+  green: "bg-hl-green text-hl-ink",
+  amber: "bg-hl-amber text-hl-ink",
+  red: "bg-hl-red text-hl-ink",
+  blue: "bg-hl-blue text-hl-ink",
+  gray: "bg-hl-gray text-hl-ink",
 };
+
+/** Fixed order used by the Library color-ratio strip. */
+export const RATIO_ORDER: ColorKey[] = ["green", "amber", "red", "blue", "gray"];
 
 export const SWATCH_CLASS: Record<ColorKey, string> = {
   green: "bg-hl-green-strong",

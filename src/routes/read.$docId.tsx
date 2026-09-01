@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeSegments } from "@/lib/analyze.functions";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   COLORS,
   HIGHLIGHT_CLASS,
@@ -21,6 +22,7 @@ type Segment = {
   text: string;
   ai_label: string | null;
   user_color: string | null;
+  terms: string[] | null;
 };
 
 const getDocument = createServerFn({ method: "GET" })
@@ -41,7 +43,7 @@ const getDocument = createServerFn({ method: "GET" })
     if (!doc) return null;
     const { data: segments, error: segError } = await client
       .from("segments")
-      .select("id, order_index, text, ai_label, user_color")
+      .select("id, order_index, text, ai_label, user_color, terms")
       .eq("doc_id", data.docId)
       .order("order_index", { ascending: true });
     if (segError) throw new Error(segError.message);
@@ -95,7 +97,9 @@ function ReaderPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [recall, setRecall] = useState(false);
   const [loadingTerms, setLoadingTerms] = useState(false);
-  const [terms, setTerms] = useState<Record<string, string[]>>({});
+  const [terms, setTerms] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(segments.filter((s) => s.terms?.length).map((s) => [s.id, s.terms ?? []])),
+  );
   const userTouched = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -124,8 +128,8 @@ function ReaderPage() {
           for (const { id, label: _label, terms: t } of res.labels) next[id] = t;
           return next;
         });
-        for (const { id, label } of res.labels) {
-          void supabase.from("segments").update({ ai_label: label }).eq("id", id);
+        for (const { id, label, terms: t } of res.labels) {
+          void supabase.from("segments").update({ ai_label: label, terms: t }).eq("id", id);
         }
       })
       .catch(() => {
@@ -144,7 +148,7 @@ function ReaderPage() {
     const next = !recall;
     setRecall(next);
     if (!next) return;
-    const missing = segments.filter((s) => !terms[s.id]);
+    const missing = segments.filter((s) => !terms[s.id]?.length);
     if (missing.length === 0) return;
     setLoadingTerms(true);
     try {
@@ -152,6 +156,9 @@ function ReaderPage() {
         data: { segments: missing.map((s) => ({ id: s.id, text: s.text })) },
       });
       if (res.error) toast.error("Could not pick recall terms");
+      for (const { id, terms: t } of res.labels) {
+        void supabase.from("segments").update({ terms: t }).eq("id", id);
+      }
       setTerms((prev) => {
         const merged = { ...prev };
         for (const { id, terms: t } of res.labels) merged[id] = t;
@@ -224,10 +231,10 @@ function ReaderPage() {
         <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
           {data?.doc.title ?? "Untitled"}
         </h1>
-        <p className="mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
+        <p className="no-print mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
           Click a sentence, then press 1–5 to mark it.
         </p>
-        <div className="mb-6 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
+        <div className="no-print mb-6 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
           {analyzing ? (
             <>
               <span className="inline-block size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
@@ -241,7 +248,7 @@ function ReaderPage() {
           )}
         </div>
 
-        <div className="mb-10 flex flex-wrap items-center gap-4 font-sans text-xs">
+        <div className="no-print mb-10 flex flex-wrap items-center gap-4 font-sans text-xs">
           <button
             onClick={() => void toggleRecall()}
             aria-pressed={recall}
@@ -297,6 +304,31 @@ function ReaderPage() {
           })}
         </div>
 
+        <div className="no-print mt-14 flex flex-wrap items-center gap-3 border-t border-border pt-6 font-sans text-xs">
+          <button
+            onClick={() => window.print()}
+            className="rounded-md border border-border px-3 py-1.5 font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Export PDF
+          </button>
+          <button
+            onClick={async () => {
+              const url = window.location.href;
+              try {
+                await navigator.clipboard.writeText(url);
+                toast.success("Shareable link copied");
+              } catch {
+                toast.error(url);
+              }
+            }}
+            className="rounded-md border border-border px-3 py-1.5 font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Copy share link
+          </button>
+          <span className="text-muted-foreground">
+            The PDF keeps every highlight color; the link opens this exact colored reading.
+          </span>
+        </div>
       </main>
     </div>
   );
@@ -367,14 +399,22 @@ function RecallBlock({ word, color }: { word: string; color: ColorKey }) {
 
 function Toolbar() {
   return (
-    <header className="fixed inset-x-0 top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
+    <header className="no-print fixed inset-x-0 top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-[680px] items-center justify-between gap-2 px-6 py-2.5">
-        <Link
-          to="/"
-          className="font-serif text-sm font-semibold tracking-tight text-foreground hover:opacity-70"
-        >
-          Chroma Reader
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/"
+            className="font-serif text-sm font-semibold tracking-tight text-foreground hover:opacity-70"
+          >
+            Chroma Reader
+          </Link>
+          <Link
+            to="/library"
+            className="font-sans text-xs text-muted-foreground hover:text-foreground"
+          >
+            Library
+          </Link>
+        </div>
         <nav className="flex items-center gap-1 font-sans text-xs">
           {COLORS.map((c) => (
             <span
@@ -389,6 +429,7 @@ function Toolbar() {
               </kbd>
             </span>
           ))}
+          <ThemeToggle className="ml-1" />
         </nav>
       </div>
     </header>
