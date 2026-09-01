@@ -79,20 +79,59 @@ export const Route = createFileRoute("/read/$docId")({
 
 function effectiveColor(seg: Segment): ColorKey | null {
   if (isColorKey(seg.user_color)) return seg.user_color;
-  if (isColorKey(seg.ai_label)) return seg.ai_label;
-  return null;
+  return colorFromAiLabel(seg.ai_label);
 }
 
 function ReaderPage() {
   const { docId } = Route.useParams();
   const { data } = useSuspenseQuery(docQueryOptions(docId));
   const segments = data?.segments ?? [];
+  const runAnalysis = useServerFn(analyzeSegments);
 
   const [selected, setSelected] = useState<number>(-1);
   const [colors, setColors] = useState<Record<string, ColorKey | null>>(() =>
     Object.fromEntries(segments.map((s) => [s.id, effectiveColor(s)])),
   );
+  const [analyzing, setAnalyzing] = useState(false);
+  const userTouched = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const unlabeled = segments.filter((s) => !s.ai_label && !s.user_color);
+
+  useEffect(() => {
+    if (unlabeled.length === 0) return;
+    let cancelled = false;
+    setAnalyzing(true);
+    runAnalysis({ data: { segments: unlabeled.map((s) => ({ id: s.id, text: s.text })) } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.error) toast.error("AI first pass unavailable");
+        if (res.labels.length === 0) return;
+        setColors((prev) => {
+          const next = { ...prev };
+          for (const { id, label } of res.labels) {
+            if (userTouched.current.has(id)) continue;
+            const color = colorFromAiLabel(label);
+            if (color) next[id] = color;
+          }
+          return next;
+        });
+        for (const { id, label } of res.labels) {
+          void supabase.from("segments").update({ ai_label: label }).eq("id", id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("AI first pass failed");
+      })
+      .finally(() => {
+        if (!cancelled) setAnalyzing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
+
 
   const assign = useCallback(
     (index: number, color: ColorKey) => {
