@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 export type AiLabel = "key" | "hard" | "soft" | "skip";
 
-export type LabelResult = { id: string; label: AiLabel; terms: string[] };
+export type LabelResult = { id: string; label: AiLabel };
 
 const SYSTEM_PROMPT = `You classify sentences from study material to help a student triage what to focus on. For each sentence return exactly one label:
   "key"   — a core definition, principle, or thesis
@@ -10,9 +10,7 @@ const SYSTEM_PROMPT = `You classify sentences from study material to help a stud
   "soft"  — an example, illustration, or restatement
   "skip"  — background, historical aside, or filler
 
-Also return "terms": the 1-2 most content-bearing words in that sentence (key nouns or technical terms), copied verbatim from the sentence.
-
-Return only valid JSON: [{"id":1,"label":"key","terms":["photosynthesis"]}]
+Return only valid JSON: [{"id":1,"label":"key"}]
 No prose, no markdown, no code fences.`;
 
 
@@ -25,7 +23,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-function parseLabels(raw: string): Array<{ id: number; label: string; terms?: unknown }> {
+function parseLabels(raw: string): Array<{ id: number; label: string }> {
   const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   const start = cleaned.indexOf("[");
   const end = cleaned.lastIndexOf("]");
@@ -81,11 +79,7 @@ export const analyzeSegments = createServerFn({ method: "POST" })
           const seg = batch[Number(item.id) - 1];
           const label = String(item.label).toLowerCase() as AiLabel;
           if (!seg || !VALID.includes(label)) continue;
-          const terms = (Array.isArray(item.terms) ? item.terms : [])
-            .map((t) => String(t).trim())
-            .filter((t) => t.length > 1 && seg.text.toLowerCase().includes(t.toLowerCase()))
-            .slice(0, 2);
-          labels.push({ id: seg.id, label, terms });
+          labels.push({ id: seg.id, label });
         }
 
         return { labels, error: undefined as string | undefined };
