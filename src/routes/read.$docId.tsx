@@ -227,7 +227,7 @@ function ReaderPage() {
         <p className="mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
           Click a sentence, then press 1–5 to mark it.
         </p>
-        <div className="mb-12 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
+        <div className="mb-6 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
           {analyzing ? (
             <>
               <span className="inline-block size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
@@ -239,6 +239,33 @@ function ReaderPage() {
               first pass. Override them with 1–5 as you read; your choices always win.
             </span>
           )}
+        </div>
+
+        <div className="mb-10 flex flex-wrap items-center gap-4 font-sans text-xs">
+          <button
+            onClick={() => void toggleRecall()}
+            aria-pressed={recall}
+            className={[
+              "rounded-md border px-3 py-1.5 font-medium uppercase tracking-widest transition-colors",
+              recall
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:text-foreground",
+            ].join(" ")}
+          >
+            {loadingTerms ? "Preparing recall…" : recall ? "Recall on" : "Recall"}
+          </button>
+          {recall && (
+            <span className="text-muted-foreground">Hold a block to peek at the hidden word.</span>
+          )}
+          <div className="ml-auto flex min-w-[180px] items-center gap-2">
+            <span className="whitespace-nowrap text-muted-foreground">Mastery {mastery}%</span>
+            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-hl-green-strong transition-all"
+                style={{ width: `${mastery}%` }}
+              />
+            </div>
+          </div>
         </div>
 
         <div
@@ -260,11 +287,16 @@ function ReaderPage() {
                   isSelected ? "outline outline-2 outline-ring" : "",
                 ].join(" ")}
               >
-                {seg.text}{" "}
+                {recall && color ? (
+                  <RecallText text={seg.text} terms={terms[seg.id] ?? []} color={color} />
+                ) : (
+                  seg.text
+                )}{" "}
               </span>
             );
           })}
         </div>
+
       </main>
     </div>
   );
