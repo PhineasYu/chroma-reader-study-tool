@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 export type AiLabel = "key" | "hard" | "soft" | "skip";
 
-export type LabelResult = { id: string; label: AiLabel };
+export type LabelResult = { id: string; label: AiLabel; terms: string[] };
 
 const SYSTEM_PROMPT = `You classify sentences from study material to help a student triage what to focus on. For each sentence return exactly one label:
   "key"   — a core definition, principle, or thesis
@@ -10,8 +10,11 @@ const SYSTEM_PROMPT = `You classify sentences from study material to help a stud
   "soft"  — an example, illustration, or restatement
   "skip"  — background, historical aside, or filler
 
-Return only valid JSON: [{"id":1,"label":"key"}]
+Also return "terms": the 1-2 most content-bearing words in that sentence (key nouns or technical terms), copied verbatim from the sentence.
+
+Return only valid JSON: [{"id":1,"label":"key","terms":["photosynthesis"]}]
 No prose, no markdown, no code fences.`;
+
 
 const BATCH_SIZE = 40;
 const VALID: AiLabel[] = ["key", "hard", "soft", "skip"];
