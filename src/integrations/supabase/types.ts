@@ -41,6 +41,7 @@ export type Database = {
           doc_id: string
           id: string
           order_index: number
+          terms: string[]
           text: string
           user_color: string | null
         }
@@ -49,6 +50,7 @@ export type Database = {
           doc_id: string
           id?: string
           order_index: number
+          terms?: string[]
           text: string
           user_color?: string | null
         }
@@ -57,6 +59,7 @@ export type Database = {
           doc_id?: string
           id?: string
           order_index?: number
+          terms?: string[]
           text?: string
           user_color?: string | null
         }
