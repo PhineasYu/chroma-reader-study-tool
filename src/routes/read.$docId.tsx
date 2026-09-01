@@ -270,12 +270,45 @@ function ReaderPage() {
   return (
     <div className="min-h-screen">
       <Toolbar />
-      <main className="mx-auto max-w-[680px] px-6 pb-32 pt-28">
-        <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
-          {data?.doc.title ?? "Untitled"}
-        </h1>
 
-        <section className="mb-6" aria-label="Document review progress">
+      {/* Fixed left progress sidebar — stays visible while scrolling */}
+      <aside
+        className="no-print fixed left-0 top-0 z-10 hidden h-screen w-40 flex-col border-r border-border bg-background pt-14 md:flex lg:w-52"
+        aria-label="Document review progress"
+      >
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4 lg:p-5">
+          <div>
+            <h2 className="mb-3 font-sans text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Progress
+            </h2>
+            <RatioStrip counts={counts} total={total} />
+            <div className="mt-3 flex flex-col gap-2 font-sans text-xs text-muted-foreground">
+              {COLORS.map((c) => (
+                <span key={c.key} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
+                    <span className={`inline-block size-2 rounded-[2px] ${SWATCH_CLASS[c.key]}`} />
+                    {c.label}
+                  </span>
+                  <span className="font-medium text-foreground">
+                    {total ? Math.round((counts[c.key] / total) * 100) : 0}%
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <Link
+            to="/session/$docId"
+            params={{ docId }}
+            className="mt-auto font-sans text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Session history
+          </Link>
+        </div>
+      </aside>
+
+      {/* Mobile top progress strip */}
+      <div className="no-print mx-auto max-w-[680px] px-6 pt-20 md:hidden">
+        <section className="mb-4" aria-label="Document review progress">
           <RatioStrip counts={counts} total={total} />
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground">
             {COLORS.map((c) => (
@@ -287,12 +320,18 @@ function ReaderPage() {
             <Link
               to="/session/$docId"
               params={{ docId }}
-              className="no-print ml-auto underline underline-offset-2 hover:text-foreground"
+              className="ml-auto underline underline-offset-2 hover:text-foreground"
             >
               Session history
             </Link>
           </div>
         </section>
+      </div>
+
+      <main className="mx-auto max-w-[680px] px-6 pb-32 pt-8 md:ml-40 md:mr-0 md:max-w-[580px] md:pt-28 lg:ml-52 lg:max-w-[680px]">
+        <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
+          {data?.doc.title ?? "Untitled"}
+        </h1>
 
         <p className="no-print mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
           Click any sentence, press 1–5 to recolor · same key clears it · ⌘/Ctrl+Z undoes
