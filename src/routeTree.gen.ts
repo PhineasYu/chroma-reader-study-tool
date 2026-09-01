@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as ReadDocIdRouteImport } from './routes/read.$docId'
+import { Route as SessionDocIdRouteImport } from './routes/session.$docId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const ReadDocIdRoute = ReadDocIdRouteImport.update({
   path: '/read/$docId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionDocIdRoute = SessionDocIdRouteImport.update({
+  id: '/session/$docId',
+  path: '/session/$docId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/read/$docId': typeof ReadDocIdRoute
+  '/session/$docId': typeof SessionDocIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/read/$docId': typeof ReadDocIdRoute
+  '/session/$docId': typeof SessionDocIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/read/$docId': typeof ReadDocIdRoute
+  '/session/$docId': typeof SessionDocIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/library' | '/read/$docId'
+  fullPaths: '/' | '/library' | '/read/$docId' | '/session/$docId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/library' | '/read/$docId'
-  id: '__root__' | '/' | '/library' | '/read/$docId'
+  to: '/' | '/library' | '/read/$docId' | '/session/$docId'
+  id: '__root__' | '/' | '/library' | '/read/$docId' | '/session/$docId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
   ReadDocIdRoute: typeof ReadDocIdRoute
+  SessionDocIdRoute: typeof SessionDocIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReadDocIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/session/$docId': {
+      id: '/session/$docId'
+      path: '/session/$docId'
+      fullPath: '/session/$docId'
+      preLoaderRoute: typeof SessionDocIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
   ReadDocIdRoute: ReadDocIdRoute,
+  SessionDocIdRoute: SessionDocIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
