@@ -87,6 +87,7 @@ function ReaderPage() {
   const runAnalysis = useServerFn(analyzeSegments);
 
   const [selected, setSelected] = useState<number>(-1);
+  const [barOpen, setBarOpen] = useState(false);
   /** Explicit user choices only. null = deliberately cleared. */
   const [userColors, setUserColors] = useState<UserColors>(() =>
     Object.fromEntries(
@@ -166,9 +167,15 @@ function ReaderPage() {
       });
   }, []);
 
+  /** Select a sentence and open the floating bar. */
+  const select = useCallback((index: number) => {
+    setSelected(index);
+    setBarOpen(true);
+  }, []);
+
   /** Optimistic write; pressing the same number again clears the color. */
   const assign = useCallback(
-    (index: number, color: ColorKey) => {
+    (index: number, color: ColorKey, advance = true) => {
       const seg = segments[index];
       if (!seg) return;
       const current = seg.id in userColors ? userColors[seg.id] ?? null : null;
@@ -176,8 +183,22 @@ function ReaderPage() {
 
       undoStack.current.push({ id: seg.id, color: current });
       setUserColors((prev) => ({ ...prev, [seg.id]: next }));
-      if (next !== null) setSelected(Math.min(index + 1, segments.length - 1));
+      if (advance && next !== null) setSelected(Math.min(index + 1, segments.length - 1));
       persist(seg.id, next);
+    },
+    [segments, userColors, persist],
+  );
+
+  /** Clear a sentence back to unmarked. */
+  const clearColor = useCallback(
+    (index: number) => {
+      const seg = segments[index];
+      if (!seg) return;
+      const current = seg.id in userColors ? userColors[seg.id] ?? null : null;
+      if (current === null) return;
+      undoStack.current.push({ id: seg.id, color: current });
+      setUserColors((prev) => ({ ...prev, [seg.id]: null }));
+      persist(seg.id, null);
     },
     [segments, userColors, persist],
   );
@@ -193,6 +214,11 @@ function ReaderPage() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setBarOpen(false);
+        setSelected(-1);
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         undo();
@@ -207,15 +233,30 @@ function ReaderPage() {
       }
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
+        setBarOpen(true);
         setSelected((s) => Math.min(s + 1, segments.length - 1));
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
+        setBarOpen(true);
         setSelected((s) => Math.max(s - 1, 0));
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selected, segments.length, assign, undo]);
+
+  // Clicking outside any sentence (and outside the bar) closes the bar.
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest("[data-sentence]") || target.closest("[data-color-bar]")) return;
+      setBarOpen(false);
+      setSelected(-1);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
 
   useEffect(() => {
     if (selected < 0) return;
@@ -279,7 +320,8 @@ function ReaderPage() {
               <span
                 key={seg.id}
                 data-index={i}
-                onClick={() => setSelected(i)}
+                data-sentence
+                onClick={() => select(i)}
                 className={[
                   "cursor-pointer rounded-[3px] px-1 py-0.5 transition-colors",
                   color ? HIGHLIGHT_CLASS[color] : "",
@@ -291,6 +333,24 @@ function ReaderPage() {
             );
           })}
         </div>
+
+        {barOpen && selected >= 0 && (
+          <FloatingColorBar
+            anchor={bodyRef.current?.querySelector(`[data-index="${selected}"]`) ?? null}
+            current={(() => {
+              const seg = segments[selected];
+              return seg ? colorOf(seg) : null;
+            })()}
+            onPick={(color) => {
+              assign(selected, color, false);
+              setBarOpen(false);
+            }}
+            onClear={() => {
+              clearColor(selected);
+              setBarOpen(false);
+            }}
+          />
+        )}
 
         <div className="no-print mt-14 flex flex-wrap items-center gap-3 border-t border-border pt-6 font-sans text-xs">
           <button
@@ -358,5 +418,105 @@ function Toolbar() {
         </nav>
       </div>
     </header>
+  );
+}
+
+const SWATCH_TEXT: Record<ColorKey, string> = {
+  green: "text-hl-green-strong",
+  amber: "text-hl-amber-strong",
+  red: "text-hl-red-strong",
+  blue: "text-hl-blue-strong",
+  gray: "text-hl-gray-strong",
+};
+
+const BAR_HEIGHT = 32;
+const BAR_GAP = 6;
+
+function FloatingColorBar({
+  anchor,
+  current,
+  onPick,
+  onClear,
+}: {
+  anchor: Element | null;
+  current: ColorKey | null;
+  onPick: (color: ColorKey) => void;
+  onClear: () => void;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [visible, setVisible] = useState(false);
+  const coarse = useMemo(
+    () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches,
+    [],
+  );
+
+  useEffect(() => {
+    if (!anchor) return;
+    const rect = anchor.getClientRects()[0];
+    if (!rect) return;
+    const barWidth = barRef.current?.offsetWidth ?? 200;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    // Clamp horizontally so the bar never leaves the viewport.
+    const left = Math.max(
+      scrollX + 8,
+      Math.min(rect.left + scrollX, scrollX + window.innerWidth - barWidth - 8),
+    );
+    // Above the first line; flip below when there's no room in the viewport.
+    const aboveTop = rect.top + scrollY - BAR_HEIGHT - BAR_GAP;
+    const top =
+      rect.top - BAR_HEIGHT - BAR_GAP < 8
+        ? rect.bottom + scrollY + BAR_GAP
+        : aboveTop;
+    setPos({ left, top });
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [anchor]);
+
+  return (
+    <div
+      ref={barRef}
+      data-color-bar
+      role="toolbar"
+      aria-label="Assign color"
+      className="absolute z-20 flex items-center gap-1 rounded-[var(--radius)] border-[0.5px] border-border bg-card p-1 shadow-sm transition-opacity duration-100"
+      style={{
+        left: pos?.left ?? -9999,
+        top: pos?.top ?? -9999,
+        opacity: visible && pos ? 1 : 0,
+        height: coarse ? 40 : BAR_HEIGHT,
+      }}
+    >
+      {COLORS.map((c) => (
+        <button
+          key={c.key}
+          type="button"
+          title={`${c.label} (${c.shortcut})`}
+          onClick={() => onPick(c.key)}
+          className={[
+            "flex items-center justify-center rounded-[4px] font-sans text-[11px] font-semibold",
+            HIGHLIGHT_CLASS[c.key],
+            SWATCH_TEXT[c.key],
+            current === c.key ? "ring-2 ring-ring ring-offset-1 ring-offset-card" : "",
+            coarse ? "h-8 w-9" : "h-6 w-[26px]",
+          ].join(" ")}
+        >
+          {c.shortcut}
+        </button>
+      ))}
+      <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+      <button
+        type="button"
+        title="Clear color"
+        onClick={onClear}
+        className={[
+          "flex items-center justify-center rounded-[4px] font-sans text-sm text-muted-foreground hover:text-foreground",
+          coarse ? "h-8 w-8" : "h-6 w-6",
+        ].join(" ")}
+      >
+        ×
+      </button>
+    </div>
   );
 }
