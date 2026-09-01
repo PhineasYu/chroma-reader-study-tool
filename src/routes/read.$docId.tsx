@@ -187,9 +187,23 @@ function ReaderPage() {
         <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
           {data?.doc.title ?? "Untitled"}
         </h1>
-        <p className="mb-12 font-sans text-xs uppercase tracking-widest text-muted-foreground">
+        <p className="mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
           Click a sentence, then press 1–5 to mark it.
         </p>
+        <div className="mb-12 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
+          {analyzing ? (
+            <>
+              <span className="inline-block size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+              <span>Running the AI first pass over your sentences…</span>
+            </>
+          ) : (
+            <span>
+              Colors you see now are <em className="not-italic font-medium text-foreground">AI suggestions</em> — a rough
+              first pass. Override them with 1–5 as you read; your choices always win.
+            </span>
+          )}
+        </div>
+
         <div
           ref={bodyRef}
           className="font-serif text-lg"
