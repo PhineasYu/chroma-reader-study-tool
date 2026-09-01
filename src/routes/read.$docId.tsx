@@ -1,16 +1,19 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeSegments } from "@/lib/analyze.functions";
 import {
   COLORS,
   HIGHLIGHT_CLASS,
   SWATCH_CLASS,
+  colorFromAiLabel,
   isColorKey,
   type ColorKey,
 } from "@/lib/colors";
+
 
 type Segment = {
   id: string;
