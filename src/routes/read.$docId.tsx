@@ -320,7 +320,8 @@ function ReaderPage() {
               <span
                 key={seg.id}
                 data-index={i}
-                onClick={() => setSelected(i)}
+                data-sentence
+                onClick={() => select(i)}
                 className={[
                   "cursor-pointer rounded-[3px] px-1 py-0.5 transition-colors",
                   color ? HIGHLIGHT_CLASS[color] : "",
@@ -332,6 +333,24 @@ function ReaderPage() {
             );
           })}
         </div>
+
+        {barOpen && selected >= 0 && (
+          <FloatingColorBar
+            anchor={bodyRef.current?.querySelector(`[data-index="${selected}"]`) ?? null}
+            current={(() => {
+              const seg = segments[selected];
+              return seg ? colorOf(seg) : null;
+            })()}
+            onPick={(color) => {
+              assign(selected, color, false);
+              setBarOpen(false);
+            }}
+            onClear={() => {
+              clearColor(selected);
+              setBarOpen(false);
+            }}
+          />
+        )}
 
         <div className="no-print mt-14 flex flex-wrap items-center gap-3 border-t border-border pt-6 font-sans text-xs">
           <button
