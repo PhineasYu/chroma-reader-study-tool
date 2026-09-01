@@ -14,7 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documents: {
+        Row: {
+          created_at: string
+          id: string
+          raw_text: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          raw_text: string
+          title?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          raw_text?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      segments: {
+        Row: {
+          ai_label: string | null
+          doc_id: string
+          id: string
+          order_index: number
+          text: string
+          user_color: string | null
+        }
+        Insert: {
+          ai_label?: string | null
+          doc_id: string
+          id?: string
+          order_index: number
+          text: string
+          user_color?: string | null
+        }
+        Update: {
+          ai_label?: string | null
+          doc_id?: string
+          id?: string
+          order_index?: number
+          text?: string
+          user_color?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segments_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
