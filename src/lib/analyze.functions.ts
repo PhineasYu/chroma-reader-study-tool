@@ -80,8 +80,14 @@ export const analyzeSegments = createServerFn({ method: "POST" })
         for (const item of parseLabels(content)) {
           const seg = batch[Number(item.id) - 1];
           const label = String(item.label).toLowerCase() as AiLabel;
-          if (seg && VALID.includes(label)) labels.push({ id: seg.id, label });
+          if (!seg || !VALID.includes(label)) continue;
+          const terms = (Array.isArray(item.terms) ? item.terms : [])
+            .map((t) => String(t).trim())
+            .filter((t) => t.length > 1 && seg.text.toLowerCase().includes(t.toLowerCase()))
+            .slice(0, 2);
+          labels.push({ id: seg.id, label, terms });
         }
+
         return { labels, error: undefined as string | undefined };
       }),
     );
