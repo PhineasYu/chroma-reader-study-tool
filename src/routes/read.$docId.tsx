@@ -137,8 +137,10 @@ function ReaderPage() {
     (index: number, color: ColorKey) => {
       const seg = segments[index];
       if (!seg) return;
+      userTouched.current.add(seg.id);
       setColors((prev) => ({ ...prev, [seg.id]: color }));
       setSelected(Math.min(index + 1, segments.length - 1));
+
       supabase
         .from("segments")
         .update({ user_color: color })
