@@ -32,6 +32,20 @@ export function isColorKey(value: string | null | undefined): value is ColorKey 
   return COLORS.some((c) => c.key === value);
 }
 
+/** AI labels map onto the reader's color system. */
+export const AI_LABEL_COLOR: Record<string, ColorKey> = {
+  key: "blue",
+  hard: "red",
+  soft: "green",
+  skip: "gray",
+};
+
+export function colorFromAiLabel(label: string | null | undefined): ColorKey | null {
+  if (!label) return null;
+  return AI_LABEL_COLOR[label] ?? (isColorKey(label) ? label : null);
+}
+
+
 /** Split raw text into sentences, preserving punctuation. */
 export function splitSentences(raw: string): string[] {
   const normalized = raw.replace(/\s+/g, " ").trim();
