@@ -93,6 +93,9 @@ function ReaderPage() {
     Object.fromEntries(segments.map((s) => [s.id, effectiveColor(s)])),
   );
   const [analyzing, setAnalyzing] = useState(false);
+  const [recall, setRecall] = useState(false);
+  const [loadingTerms, setLoadingTerms] = useState(false);
+  const [terms, setTerms] = useState<Record<string, string[]>>({});
   const userTouched = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +119,11 @@ function ReaderPage() {
           }
           return next;
         });
+        setTerms((prev) => {
+          const next = { ...prev };
+          for (const { id, label: _label, terms: t } of res.labels) next[id] = t;
+          return next;
+        });
         for (const { id, label } of res.labels) {
           void supabase.from("segments").update({ ai_label: label }).eq("id", id);
         }
@@ -131,6 +139,35 @@ function ReaderPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
+
+  const toggleRecall = useCallback(async () => {
+    const next = !recall;
+    setRecall(next);
+    if (!next) return;
+    const missing = segments.filter((s) => !terms[s.id]);
+    if (missing.length === 0) return;
+    setLoadingTerms(true);
+    try {
+      const res = await runAnalysis({
+        data: { segments: missing.map((s) => ({ id: s.id, text: s.text })) },
+      });
+      if (res.error) toast.error("Could not pick recall terms");
+      setTerms((prev) => {
+        const merged = { ...prev };
+        for (const { id, terms: t } of res.labels) merged[id] = t;
+        for (const s of missing) merged[s.id] ??= [];
+        return merged;
+      });
+    } catch {
+      toast.error("Could not pick recall terms");
+    } finally {
+      setLoadingTerms(false);
+    }
+  }, [recall, segments, terms, runAnalysis]);
+
+  const greenCount = segments.filter((s) => colors[s.id] === "green").length;
+  const mastery = segments.length ? Math.round((greenCount / segments.length) * 100) : 0;
+
 
 
   const assign = useCallback(
@@ -190,7 +227,7 @@ function ReaderPage() {
         <p className="mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
           Click a sentence, then press 1–5 to mark it.
         </p>
-        <div className="mb-12 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
+        <div className="mb-6 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
           {analyzing ? (
             <>
               <span className="inline-block size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
@@ -202,6 +239,33 @@ function ReaderPage() {
               first pass. Override them with 1–5 as you read; your choices always win.
             </span>
           )}
+        </div>
+
+        <div className="mb-10 flex flex-wrap items-center gap-4 font-sans text-xs">
+          <button
+            onClick={() => void toggleRecall()}
+            aria-pressed={recall}
+            className={[
+              "rounded-md border px-3 py-1.5 font-medium uppercase tracking-widest transition-colors",
+              recall
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:text-foreground",
+            ].join(" ")}
+          >
+            {loadingTerms ? "Preparing recall…" : recall ? "Recall on" : "Recall"}
+          </button>
+          {recall && (
+            <span className="text-muted-foreground">Hold a block to peek at the hidden word.</span>
+          )}
+          <div className="ml-auto flex min-w-[180px] items-center gap-2">
+            <span className="whitespace-nowrap text-muted-foreground">Mastery {mastery}%</span>
+            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-hl-green-strong transition-all"
+                style={{ width: `${mastery}%` }}
+              />
+            </div>
+          </div>
         </div>
 
         <div
@@ -223,15 +287,83 @@ function ReaderPage() {
                   isSelected ? "outline outline-2 outline-ring" : "",
                 ].join(" ")}
               >
-                {seg.text}{" "}
+                {recall && color ? (
+                  <RecallText text={seg.text} terms={terms[seg.id] ?? []} color={color} />
+                ) : (
+                  seg.text
+                )}{" "}
               </span>
             );
           })}
         </div>
+
       </main>
     </div>
   );
 }
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function RecallText({
+  text,
+  terms,
+  color,
+}: {
+  text: string;
+  terms: string[];
+  color: ColorKey;
+}) {
+  const clean = terms.filter((t) => t.trim().length > 1);
+  if (clean.length === 0) return <>{text}</>;
+  const pattern = new RegExp(`(${clean.map(escapeRegExp).join("|")})`, "gi");
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) =>
+        clean.some((t) => t.toLowerCase() === part.toLowerCase()) ? (
+          <RecallBlock key={i} word={part} color={color} />
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function RecallBlock({ word, color }: { word: string; color: ColorKey }) {
+  const [revealed, setRevealed] = useState(false);
+  const hide = () => setRevealed(false);
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label="Hidden term — hold to reveal"
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        setRevealed(true);
+      }}
+      onMouseUp={hide}
+      onMouseLeave={hide}
+      onTouchStart={(e) => {
+        e.stopPropagation();
+        setRevealed(true);
+      }}
+      onTouchEnd={hide}
+      onTouchCancel={hide}
+      onContextMenu={(e) => e.preventDefault()}
+      className={[
+        "inline-block cursor-pointer select-none rounded-[3px] align-baseline transition-colors",
+        revealed ? "" : SWATCH_CLASS[color],
+      ].join(" ")}
+      style={revealed ? undefined : { width: `${Math.max(word.length, 2)}ch`, height: "1em" }}
+    >
+      {revealed ? word : ""}
+    </span>
+  );
+}
+
 
 function Toolbar() {
   return (
