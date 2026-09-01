@@ -389,7 +389,6 @@ function RecallBlock({ word, color }: { word: string; color: ColorKey }) {
         "inline-block cursor-pointer select-none rounded-[3px] align-baseline transition-colors",
         revealed ? "" : SWATCH_CLASS[color],
       ].join(" ")}
-      style={revealed ? undefined : undefined}
     >
       {revealed ? word : <span className="invisible">{word}</span>}
     </span>
