@@ -87,6 +87,7 @@ function ReaderPage() {
   const runAnalysis = useServerFn(analyzeSegments);
 
   const [selected, setSelected] = useState<number>(-1);
+  const [barOpen, setBarOpen] = useState(false);
   /** Explicit user choices only. null = deliberately cleared. */
   const [userColors, setUserColors] = useState<UserColors>(() =>
     Object.fromEntries(
