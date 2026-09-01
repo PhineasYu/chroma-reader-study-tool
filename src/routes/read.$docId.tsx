@@ -167,9 +167,15 @@ function ReaderPage() {
       });
   }, []);
 
+  /** Select a sentence and open the floating bar. */
+  const select = useCallback((index: number) => {
+    setSelected(index);
+    setBarOpen(true);
+  }, []);
+
   /** Optimistic write; pressing the same number again clears the color. */
   const assign = useCallback(
-    (index: number, color: ColorKey) => {
+    (index: number, color: ColorKey, advance = true) => {
       const seg = segments[index];
       if (!seg) return;
       const current = seg.id in userColors ? userColors[seg.id] ?? null : null;
@@ -177,8 +183,22 @@ function ReaderPage() {
 
       undoStack.current.push({ id: seg.id, color: current });
       setUserColors((prev) => ({ ...prev, [seg.id]: next }));
-      if (next !== null) setSelected(Math.min(index + 1, segments.length - 1));
+      if (advance && next !== null) setSelected(Math.min(index + 1, segments.length - 1));
       persist(seg.id, next);
+    },
+    [segments, userColors, persist],
+  );
+
+  /** Clear a sentence back to unmarked. */
+  const clearColor = useCallback(
+    (index: number) => {
+      const seg = segments[index];
+      if (!seg) return;
+      const current = seg.id in userColors ? userColors[seg.id] ?? null : null;
+      if (current === null) return;
+      undoStack.current.push({ id: seg.id, color: current });
+      setUserColors((prev) => ({ ...prev, [seg.id]: null }));
+      persist(seg.id, null);
     },
     [segments, userColors, persist],
   );
