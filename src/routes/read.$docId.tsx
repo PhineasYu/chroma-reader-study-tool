@@ -351,7 +351,7 @@ function ReaderPage() {
           )}
         </div>
 
-        <div ref={bodyRef} className="font-serif text-lg" style={{ lineHeight: 2 }}>
+        <div ref={bodyRef} className="text-center font-serif text-lg" style={{ lineHeight: 2 }}>
           {segments.map((seg, i) => {
             const color = colorOf(seg);
             const isSelected = i === selected;
