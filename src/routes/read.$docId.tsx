@@ -93,6 +93,9 @@ function ReaderPage() {
     Object.fromEntries(segments.map((s) => [s.id, effectiveColor(s)])),
   );
   const [analyzing, setAnalyzing] = useState(false);
+  const [recall, setRecall] = useState(false);
+  const [loadingTerms, setLoadingTerms] = useState(false);
+  const [terms, setTerms] = useState<Record<string, string[]>>({});
   const userTouched = useRef<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +119,11 @@ function ReaderPage() {
           }
           return next;
         });
+        setTerms((prev) => {
+          const next = { ...prev };
+          for (const { id, label: _label, terms: t } of res.labels) next[id] = t;
+          return next;
+        });
         for (const { id, label } of res.labels) {
           void supabase.from("segments").update({ ai_label: label }).eq("id", id);
         }
@@ -131,6 +139,35 @@ function ReaderPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
+
+  const toggleRecall = useCallback(async () => {
+    const next = !recall;
+    setRecall(next);
+    if (!next) return;
+    const missing = segments.filter((s) => !terms[s.id]);
+    if (missing.length === 0) return;
+    setLoadingTerms(true);
+    try {
+      const res = await runAnalysis({
+        data: { segments: missing.map((s) => ({ id: s.id, text: s.text })) },
+      });
+      if (res.error) toast.error("Could not pick recall terms");
+      setTerms((prev) => {
+        const merged = { ...prev };
+        for (const { id, terms: t } of res.labels) merged[id] = t;
+        for (const s of missing) merged[s.id] ??= [];
+        return merged;
+      });
+    } catch {
+      toast.error("Could not pick recall terms");
+    } finally {
+      setLoadingTerms(false);
+    }
+  }, [recall, segments, terms, runAnalysis]);
+
+  const greenCount = segments.filter((s) => colors[s.id] === "green").length;
+  const mastery = segments.length ? Math.round((greenCount / segments.length) * 100) : 0;
+
 
 
   const assign = useCallback(
