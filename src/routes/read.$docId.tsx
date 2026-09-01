@@ -1,11 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createServerFn, useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeSegments } from "@/lib/analyze.functions";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { RatioStrip, emptyCounts } from "@/components/ratio-strip";
 import {
   COLORS,
   HIGHLIGHT_CLASS,
@@ -15,14 +16,12 @@ import {
   type ColorKey,
 } from "@/lib/colors";
 
-
 type Segment = {
   id: string;
   order_index: number;
   text: string;
   ai_label: string | null;
   user_color: string | null;
-  terms: string[] | null;
 };
 
 const getDocument = createServerFn({ method: "GET" })
@@ -43,7 +42,7 @@ const getDocument = createServerFn({ method: "GET" })
     if (!doc) return null;
     const { data: segments, error: segError } = await client
       .from("segments")
-      .select("id, order_index, text, ai_label, user_color, terms")
+      .select("id, order_index, text, ai_label, user_color")
       .eq("doc_id", data.docId)
       .order("order_index", { ascending: true });
     if (segError) throw new Error(segError.message);
@@ -79,33 +78,42 @@ export const Route = createFileRoute("/read/$docId")({
   component: ReaderPage,
 });
 
-function effectiveColor(seg: Segment): ColorKey | null {
-  if (isColorKey(seg.user_color)) return seg.user_color;
-  return colorFromAiLabel(seg.ai_label);
-}
+type UserColors = Record<string, ColorKey | null>;
 
 function ReaderPage() {
   const { docId } = Route.useParams();
   const { data } = useSuspenseQuery(docQueryOptions(docId));
-  const segments = data?.segments ?? [];
+  const segments = useMemo(() => data?.segments ?? [], [data]);
   const runAnalysis = useServerFn(analyzeSegments);
 
   const [selected, setSelected] = useState<number>(-1);
-  const [colors, setColors] = useState<Record<string, ColorKey | null>>(() =>
-    Object.fromEntries(segments.map((s) => [s.id, effectiveColor(s)])),
+  /** Explicit user choices only. null = deliberately cleared. */
+  const [userColors, setUserColors] = useState<UserColors>(() =>
+    Object.fromEntries(
+      segments.filter((s) => isColorKey(s.user_color)).map((s) => [s.id, s.user_color as ColorKey]),
+    ),
+  );
+  const [aiColors, setAiColors] = useState<Record<string, ColorKey>>(() =>
+    Object.fromEntries(
+      segments
+        .map((s) => [s.id, colorFromAiLabel(s.ai_label)] as const)
+        .filter((entry): entry is readonly [string, ColorKey] => entry[1] !== null),
+    ),
   );
   const [analyzing, setAnalyzing] = useState(false);
-  const [recall, setRecall] = useState(false);
-  const [loadingTerms, setLoadingTerms] = useState(false);
-  const [terms, setTerms] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(segments.filter((s) => s.terms?.length).map((s) => [s.id, s.terms ?? []])),
-  );
-  const userTouched = useRef<Set<string>>(new Set());
+  const undoStack = useRef<Array<{ id: string; color: ColorKey | null }>>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const unlabeled = segments.filter((s) => !s.ai_label && !s.user_color);
+  const colorOf = useCallback(
+    (seg: Segment): ColorKey | null => {
+      if (seg.id in userColors) return userColors[seg.id] ?? null;
+      return aiColors[seg.id] ?? null;
+    },
+    [userColors, aiColors],
+  );
 
   useEffect(() => {
+    const unlabeled = segments.filter((s) => !s.ai_label && !s.user_color);
     if (unlabeled.length === 0) return;
     let cancelled = false;
     setAnalyzing(true);
@@ -114,22 +122,17 @@ function ReaderPage() {
         if (cancelled) return;
         if (res.error) toast.error("AI first pass unavailable");
         if (res.labels.length === 0) return;
-        setColors((prev) => {
+        setAiColors((prev) => {
           const next = { ...prev };
           for (const { id, label } of res.labels) {
-            if (userTouched.current.has(id)) continue;
             const color = colorFromAiLabel(label);
             if (color) next[id] = color;
           }
           return next;
         });
-        setTerms((prev) => {
-          const next = { ...prev };
-          for (const { id, label: _label, terms: t } of res.labels) next[id] = t;
-          return next;
-        });
-        for (const { id, label, terms: t } of res.labels) {
-          void supabase.from("segments").update({ ai_label: label, terms: t }).eq("id", id);
+        for (const { id, label } of res.labels) {
+          // AI only fills blanks: never touches a segment with a user color.
+          void supabase.from("segments").update({ ai_label: label }).eq("id", id).is("user_color", null);
         }
       })
       .catch(() => {
@@ -144,60 +147,57 @@ function ReaderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
 
-  const toggleRecall = useCallback(async () => {
-    const next = !recall;
-    setRecall(next);
-    if (!next) return;
-    const missing = segments.filter((s) => !terms[s.id]?.length);
-    if (missing.length === 0) return;
-    setLoadingTerms(true);
-    try {
-      const res = await runAnalysis({
-        data: { segments: missing.map((s) => ({ id: s.id, text: s.text })) },
-      });
-      if (res.error) toast.error("Could not pick recall terms");
-      for (const { id, terms: t } of res.labels) {
-        void supabase.from("segments").update({ terms: t }).eq("id", id);
-      }
-      setTerms((prev) => {
-        const merged = { ...prev };
-        for (const { id, terms: t } of res.labels) merged[id] = t;
-        for (const s of missing) merged[s.id] ??= [];
-        return merged;
-      });
-    } catch {
-      toast.error("Could not pick recall terms");
-    } finally {
-      setLoadingTerms(false);
+  const counts = useMemo(() => {
+    const c = emptyCounts();
+    for (const seg of segments) {
+      const color = colorOf(seg);
+      if (color) c[color] += 1;
     }
-  }, [recall, segments, terms, runAnalysis]);
+    return c;
+  }, [segments, colorOf]);
 
-  const greenCount = segments.filter((s) => colors[s.id] === "green").length;
-  const mastery = segments.length ? Math.round((greenCount / segments.length) * 100) : 0;
+  const persist = useCallback((id: string, color: ColorKey | null) => {
+    supabase
+      .from("segments")
+      .update({ user_color: color, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) toast.error("Could not save color");
+      });
+  }, []);
 
-
-
+  /** Optimistic write; pressing the same number again clears the color. */
   const assign = useCallback(
     (index: number, color: ColorKey) => {
       const seg = segments[index];
       if (!seg) return;
-      userTouched.current.add(seg.id);
-      setColors((prev) => ({ ...prev, [seg.id]: color }));
-      setSelected(Math.min(index + 1, segments.length - 1));
+      const current = seg.id in userColors ? userColors[seg.id] ?? null : null;
+      const next: ColorKey | null = current === color ? null : color;
 
-      supabase
-        .from("segments")
-        .update({ user_color: color })
-        .eq("id", seg.id)
-        .then(({ error }) => {
-          if (error) toast.error("Could not save color");
-        });
+      undoStack.current.push({ id: seg.id, color: current });
+      setUserColors((prev) => ({ ...prev, [seg.id]: next }));
+      if (next !== null) setSelected(Math.min(index + 1, segments.length - 1));
+      persist(seg.id, next);
     },
-    [segments],
+    [segments, userColors, persist],
   );
+
+  const undo = useCallback(() => {
+    const last = undoStack.current.pop();
+    if (!last) return;
+    setUserColors((prev) => ({ ...prev, [last.id]: last.color }));
+    persist(last.id, last.color);
+    const idx = segments.findIndex((s) => s.id === last.id);
+    if (idx >= 0) setSelected(idx);
+  }, [segments, persist]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const match = COLORS.find((c) => c.shortcut === e.key);
       if (match && selected >= 0) {
@@ -215,7 +215,7 @@ function ReaderPage() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selected, segments.length, assign]);
+  }, [selected, segments.length, assign, undo]);
 
   useEffect(() => {
     if (selected < 0) return;
@@ -224,6 +224,8 @@ function ReaderPage() {
       ?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [selected]);
 
+  const total = segments.length;
+
   return (
     <div className="min-h-screen">
       <Toolbar />
@@ -231,10 +233,30 @@ function ReaderPage() {
         <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
           {data?.doc.title ?? "Untitled"}
         </h1>
+
+        <section className="mb-6" aria-label="Document review progress">
+          <RatioStrip counts={counts} total={total} />
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-xs text-muted-foreground">
+            {COLORS.map((c) => (
+              <span key={c.key} className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className={`inline-block size-2 rounded-[2px] ${SWATCH_CLASS[c.key]}`} />
+                {c.label} {total ? Math.round((counts[c.key] / total) * 100) : 0}%
+              </span>
+            ))}
+            <Link
+              to="/session/$docId"
+              params={{ docId }}
+              className="no-print ml-auto underline underline-offset-2 hover:text-foreground"
+            >
+              Session history
+            </Link>
+          </div>
+        </section>
+
         <p className="no-print mb-3 font-sans text-xs uppercase tracking-widest text-muted-foreground">
-          Click a sentence, then press 1–5 to mark it.
+          Click any sentence, press 1–5 to recolor · same key clears it · ⌘/Ctrl+Z undoes
         </p>
-        <div className="no-print mb-6 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
+        <div className="no-print mb-10 flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 font-sans text-xs text-muted-foreground">
           {analyzing ? (
             <>
               <span className="inline-block size-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
@@ -242,46 +264,16 @@ function ReaderPage() {
             </>
           ) : (
             <span>
-              Colors you see now are <em className="not-italic font-medium text-foreground">AI suggestions</em> — a rough
-              first pass. Override them with 1–5 as you read; your choices always win.
+              Colors you haven't set yourself are{" "}
+              <em className="not-italic font-medium text-foreground">AI suggestions</em> — override them
+              freely as you review; your choices always win.
             </span>
           )}
         </div>
 
-        <div className="no-print mb-10 flex flex-wrap items-center gap-4 font-sans text-xs">
-          <button
-            onClick={() => void toggleRecall()}
-            aria-pressed={recall}
-            className={[
-              "rounded-md border px-3 py-1.5 font-medium uppercase tracking-widest transition-colors",
-              recall
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-muted-foreground hover:text-foreground",
-            ].join(" ")}
-          >
-            {loadingTerms ? "Preparing recall…" : recall ? "Recall on" : "Recall"}
-          </button>
-          {recall && (
-            <span className="text-muted-foreground">Hold a block to peek at the hidden word.</span>
-          )}
-          <div className="ml-auto flex min-w-[180px] items-center gap-2">
-            <span className="whitespace-nowrap text-muted-foreground">Mastery {mastery}%</span>
-            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-hl-green-strong transition-all"
-                style={{ width: `${mastery}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div
-          ref={bodyRef}
-          className="font-serif text-lg"
-          style={{ lineHeight: 2 }}
-        >
+        <div ref={bodyRef} className="font-serif text-lg" style={{ lineHeight: 2 }}>
           {segments.map((seg, i) => {
-            const color = colors[seg.id];
+            const color = colorOf(seg);
             const isSelected = i === selected;
             return (
               <span
@@ -294,11 +286,7 @@ function ReaderPage() {
                   isSelected ? "outline outline-2 outline-ring" : "",
                 ].join(" ")}
               >
-                {recall && color ? (
-                  <RecallText text={seg.text} terms={terms[seg.id] ?? []} color={color} />
-                ) : (
-                  seg.text
-                )}{" "}
+                {seg.text}{" "}
               </span>
             );
           })}
@@ -333,68 +321,6 @@ function ReaderPage() {
     </div>
   );
 }
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function RecallText({
-  text,
-  terms,
-  color,
-}: {
-  text: string;
-  terms: string[];
-  color: ColorKey;
-}) {
-  const clean = terms.filter((t) => t.trim().length > 1);
-  if (clean.length === 0) return <>{text}</>;
-  const pattern = new RegExp(`(${clean.map(escapeRegExp).join("|")})`, "gi");
-  const parts = text.split(pattern);
-  return (
-    <>
-      {parts.map((part, i) =>
-        clean.some((t) => t.toLowerCase() === part.toLowerCase()) ? (
-          <RecallBlock key={i} word={part} color={color} />
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </>
-  );
-}
-
-function RecallBlock({ word, color }: { word: string; color: ColorKey }) {
-  const [revealed, setRevealed] = useState(false);
-  const hide = () => setRevealed(false);
-  return (
-    <span
-      role="button"
-      tabIndex={0}
-      aria-label="Hidden term — hold to reveal"
-      onMouseDown={(e) => {
-        e.stopPropagation();
-        setRevealed(true);
-      }}
-      onMouseUp={hide}
-      onMouseLeave={hide}
-      onTouchStart={(e) => {
-        e.stopPropagation();
-        setRevealed(true);
-      }}
-      onTouchEnd={hide}
-      onTouchCancel={hide}
-      onContextMenu={(e) => e.preventDefault()}
-      className={[
-        "inline-block cursor-pointer select-none rounded-[3px] align-baseline transition-colors",
-        revealed ? "" : SWATCH_CLASS[color],
-      ].join(" ")}
-    >
-      {revealed ? word : <span className="invisible">{word}</span>}
-    </span>
-  );
-}
-
 
 function Toolbar() {
   return (

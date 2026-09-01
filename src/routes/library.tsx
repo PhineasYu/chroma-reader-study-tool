@@ -2,13 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { ThemeToggle } from "@/components/theme-toggle";
-import {
-  RATIO_ORDER,
-  SWATCH_CLASS,
-  colorFromAiLabel,
-  isColorKey,
-  type ColorKey,
-} from "@/lib/colors";
+import { RatioStrip } from "@/components/ratio-strip";
+import { colorFromAiLabel, isColorKey, type ColorKey } from "@/lib/colors";
 
 type LibraryDoc = {
   id: string;
@@ -50,11 +45,20 @@ const listDocuments = createServerFn({ method: "GET" }).handler(async () => {
     const color = isColorKey(s.user_color) ? s.user_color : colorFromAiLabel(s.ai_label);
     if (color) entry.counts[color] += 1;
   }
-  return (docs ?? []).map((d) => ({
+  const list = (docs ?? []).map((d) => ({
     ...d,
     total: byDoc.get(d.id)?.total ?? 0,
     counts: byDoc.get(d.id)?.counts ?? { green: 0, amber: 0, red: 0, blue: 0, gray: 0 },
   })) as LibraryDoc[];
+
+  // Weakest material first: highest share of red, then highest red count.
+  return list.sort((a, b) => {
+    const ra = a.total ? a.counts.red / a.total : 0;
+    const rb = b.total ? b.counts.red / b.total : 0;
+    if (rb !== ra) return rb - ra;
+    if (b.counts.red !== a.counts.red) return b.counts.red - a.counts.red;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 });
 
 const libraryQueryOptions = queryOptions({
@@ -93,7 +97,7 @@ function LibraryPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
           <p className="mt-2 font-sans text-sm text-muted-foreground">
-            {docs.length} saved reading{docs.length === 1 ? "" : "s"}
+            {docs.length} saved reading{docs.length === 1 ? "" : "s"} · sorted by most red first
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -126,10 +130,11 @@ function LibraryPage() {
                     {new Date(doc.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <RatioStrip counts={doc.counts} total={doc.total} />
+                <RatioStrip counts={doc.counts} total={doc.total} className="mt-3" />
                 <p className="mt-2 font-sans text-xs text-muted-foreground">
                   {doc.total} sentence{doc.total === 1 ? "" : "s"} ·{" "}
-                  {doc.total ? Math.round((doc.counts.green / doc.total) * 100) : 0}% got it
+                  {doc.total ? Math.round((doc.counts.green / doc.total) * 100) : 0}% got it ·{" "}
+                  {doc.counts.red} still red
                 </p>
               </Link>
             </li>
@@ -137,27 +142,5 @@ function LibraryPage() {
         </ul>
       )}
     </main>
-  );
-}
-
-function RatioStrip({ counts, total }: { counts: Record<ColorKey, number>; total: number }) {
-  const uncolored = Math.max(total - RATIO_ORDER.reduce((n, k) => n + counts[k], 0), 0);
-  return (
-    <div
-      className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted"
-      role="img"
-      aria-label={RATIO_ORDER.map((k) => `${k} ${counts[k]}`).join(", ")}
-    >
-      {RATIO_ORDER.map((key) =>
-        counts[key] > 0 ? (
-          <span
-            key={key}
-            className={SWATCH_CLASS[key]}
-            style={{ width: `${(counts[key] / Math.max(total, 1)) * 100}%` }}
-          />
-        ) : null,
-      )}
-      {uncolored > 0 && <span style={{ width: `${(uncolored / Math.max(total, 1)) * 100}%` }} />}
-    </div>
   );
 }

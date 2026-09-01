@@ -43,6 +43,7 @@ export type Database = {
           order_index: number
           terms: string[]
           text: string
+          updated_at: string
           user_color: string | null
         }
         Insert: {
@@ -52,6 +53,7 @@ export type Database = {
           order_index: number
           terms?: string[]
           text: string
+          updated_at?: string
           user_color?: string | null
         }
         Update: {
@@ -61,6 +63,7 @@ export type Database = {
           order_index?: number
           terms?: string[]
           text?: string
+          updated_at?: string
           user_color?: string | null
         }
         Relationships: [
