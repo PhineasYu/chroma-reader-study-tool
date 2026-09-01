@@ -57,8 +57,8 @@ export const Route = createFileRoute("/read/$docId")({
     const result = await context.queryClient.ensureQueryData(docQueryOptions(params.docId));
     if (!result) throw notFound();
   },
-  head: (_, { loaderData }) => {
-    const title = loaderData?.doc?.title ?? "Reading";
+  head: (ctx) => {
+    const title = (ctx.loaderData as { doc?: { title?: string } } | undefined)?.doc?.title ?? "Reading";
     return {
       meta: [
         { title: `${title} — Chroma Reader` },
