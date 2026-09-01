@@ -418,11 +418,11 @@ function Toolbar() {
           {COLORS.map((c) => (
             <span
               key={c.key}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-muted-foreground"
               title={`${c.label} (${c.shortcut})`}
             >
               <span className={`inline-block size-3 rounded-[3px] ${SWATCH_CLASS[c.key]}`} />
-              <span className="hidden sm:inline">{c.label}</span>
+              <span className="hidden whitespace-nowrap sm:inline">{c.label}</span>
               <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">
                 {c.shortcut}
               </kbd>
