@@ -214,6 +214,11 @@ function ReaderPage() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setBarOpen(false);
+        setSelected(-1);
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         undo();
@@ -228,15 +233,30 @@ function ReaderPage() {
       }
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
+        setBarOpen(true);
         setSelected((s) => Math.min(s + 1, segments.length - 1));
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
+        setBarOpen(true);
         setSelected((s) => Math.max(s - 1, 0));
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selected, segments.length, assign, undo]);
+
+  // Clicking outside any sentence (and outside the bar) closes the bar.
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest("[data-sentence]") || target.closest("[data-color-bar]")) return;
+      setBarOpen(false);
+      setSelected(-1);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
 
   useEffect(() => {
     if (selected < 0) return;
