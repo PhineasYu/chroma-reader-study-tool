@@ -127,7 +127,10 @@ function LibraryPage() {
                 <div className="flex items-baseline justify-between gap-4">
                   <h2 className="truncate text-xl font-semibold tracking-tight">{doc.title}</h2>
                   <span className="shrink-0 font-sans text-xs text-muted-foreground">
-                    {new Date(doc.created_at).toLocaleDateString()}
+                    {(() => {
+                      const d = new Date(doc.created_at);
+                      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+                    })()}
                   </span>
                 </div>
                 <RatioStrip counts={doc.counts} total={doc.total} className="mt-3" />
