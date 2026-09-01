@@ -157,3 +157,52 @@
     color: var(--color-foreground);
   }
 }
+
+/* --- Dark mode: editorial night paper + legible highlight set --- */
+.dark {
+  --background: oklch(0.19 0.012 70);
+  --foreground: oklch(0.93 0.012 85);
+  --card: oklch(0.23 0.012 70);
+  --card-foreground: oklch(0.93 0.012 85);
+  --popover: oklch(0.23 0.012 70);
+  --popover-foreground: oklch(0.93 0.012 85);
+  --primary: oklch(0.9 0.015 85);
+  --primary-foreground: oklch(0.2 0.012 70);
+  --secondary: oklch(0.27 0.012 70);
+  --secondary-foreground: oklch(0.93 0.012 85);
+  --muted: oklch(0.27 0.012 70);
+  --muted-foreground: oklch(0.72 0.015 80);
+  --accent: oklch(0.29 0.014 70);
+  --accent-foreground: oklch(0.93 0.012 85);
+  --border: oklch(0.34 0.012 70);
+  --input: oklch(0.36 0.012 70);
+  --ring: oklch(0.72 0.03 80);
+  /* Same 5 hues, re-tuned so light text stays readable on them */
+  --hl-green: oklch(0.36 0.08 155);
+  --hl-amber: oklch(0.38 0.08 80);
+  --hl-red: oklch(0.36 0.09 25);
+  --hl-blue: oklch(0.36 0.08 245);
+  --hl-gray: oklch(0.32 0.006 80);
+  --hl-green-strong: oklch(0.62 0.14 155);
+  --hl-amber-strong: oklch(0.68 0.15 75);
+  --hl-red-strong: oklch(0.58 0.19 25);
+  --hl-blue-strong: oklch(0.6 0.14 245);
+  --hl-gray-strong: oklch(0.58 0.012 80);
+  --hl-ink: oklch(0.96 0.008 85);
+}
+
+:root {
+  /* Ink used on top of highlight tints */
+  --hl-ink: oklch(0.2 0.02 60);
+}
+
+@theme inline {
+  --color-hl-ink: var(--hl-ink);
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  main { padding-top: 0 !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
