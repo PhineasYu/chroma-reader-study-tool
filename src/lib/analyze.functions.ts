@@ -25,7 +25,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-function parseLabels(raw: string): Array<{ id: number; label: string }> {
+function parseLabels(raw: string): Array<{ id: number; label: string; terms?: unknown }> {
   const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   const start = cleaned.indexOf("[");
   const end = cleaned.lastIndexOf("]");
