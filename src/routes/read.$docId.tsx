@@ -322,7 +322,7 @@ function RecallText({
   return (
     <>
       {parts.map((part, i) =>
-        pattern.test(part) && clean.some((t) => t.toLowerCase() === part.toLowerCase()) ? (
+        clean.some((t) => t.toLowerCase() === part.toLowerCase()) ? (
           <RecallBlock key={i} word={part} color={color} />
         ) : (
           <span key={i}>{part}</span>
