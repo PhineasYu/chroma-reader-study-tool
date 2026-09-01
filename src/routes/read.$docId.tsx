@@ -328,8 +328,8 @@ function ReaderPage() {
         </section>
       </div>
 
-      <main className="mx-auto max-w-[850px] px-6 pb-32 pt-8 text-center md:max-w-[700px] md:pl-36 md:pt-28 lg:max-w-[850px] lg:pl-52">
-        <h1 className="mb-4 font-serif text-3xl font-semibold tracking-tight">
+      <main className="mx-auto max-w-[850px] px-6 pb-32 pt-8 md:max-w-[700px] md:pl-36 md:pt-28 lg:max-w-[850px] lg:pl-52">
+        <h1 className="mb-4 text-center font-serif text-3xl font-semibold tracking-tight">
           {data?.doc.title ?? "Untitled"}
         </h1>
 
