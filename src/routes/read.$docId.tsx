@@ -56,6 +56,7 @@ export const Route = createFileRoute("/read/$docId")({
   loader: async ({ params, context }) => {
     const result = await context.queryClient.ensureQueryData(docQueryOptions(params.docId));
     if (!result) throw notFound();
+    return result;
   },
   head: (ctx) => {
     const title = (ctx.loaderData as { doc?: { title?: string } } | undefined)?.doc?.title ?? "Reading";
