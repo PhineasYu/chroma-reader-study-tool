@@ -63,24 +63,24 @@
 
 :root {
   --radius: 0.625rem;
-  /* Chroma Reader: warm paper, editorial ink */
-  --background: oklch(0.975 0.008 90);
+  /* Chroma Reader: clean Notion white, readable ink */
+  --background: oklch(1 0 0);
   --foreground: oklch(0.22 0.02 60);
-  --card: oklch(0.985 0.006 90);
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.02 60);
-  --popover: oklch(0.985 0.006 90);
+  --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.02 60);
   --primary: oklch(0.3 0.03 60);
-  --primary-foreground: oklch(0.975 0.008 90);
-  --secondary: oklch(0.94 0.01 90);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.3 0.03 60);
-  --muted: oklch(0.94 0.01 90);
+  --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.52 0.02 70);
-  --accent: oklch(0.94 0.01 90);
+  --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.3 0.03 60);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.9 0.012 85);
+  --border: oklch(0.9 0 0);
   --input: oklch(0.88 0.012 85);
   --ring: oklch(0.45 0.04 60);
   /* Mastery highlight colors (background tints) */
@@ -108,7 +108,7 @@
   --color-hl-blue-strong: var(--hl-blue-strong);
   --color-hl-gray-strong: var(--hl-gray-strong);
   --font-serif: "Source Serif 4", Georgia, serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: "Roboto", system-ui, sans-serif;
 }
 
 
