@@ -302,6 +302,69 @@ function ReaderPage() {
   );
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function RecallText({
+  text,
+  terms,
+  color,
+}: {
+  text: string;
+  terms: string[];
+  color: ColorKey;
+}) {
+  const clean = terms.filter((t) => t.trim().length > 1);
+  if (clean.length === 0) return <>{text}</>;
+  const pattern = new RegExp(`(${clean.map(escapeRegExp).join("|")})`, "gi");
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) =>
+        pattern.test(part) && clean.some((t) => t.toLowerCase() === part.toLowerCase()) ? (
+          <RecallBlock key={i} word={part} color={color} />
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function RecallBlock({ word, color }: { word: string; color: ColorKey }) {
+  const [revealed, setRevealed] = useState(false);
+  const hide = () => setRevealed(false);
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label="Hidden term — hold to reveal"
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        setRevealed(true);
+      }}
+      onMouseUp={hide}
+      onMouseLeave={hide}
+      onTouchStart={(e) => {
+        e.stopPropagation();
+        setRevealed(true);
+      }}
+      onTouchEnd={hide}
+      onTouchCancel={hide}
+      onContextMenu={(e) => e.preventDefault()}
+      className={[
+        "inline-block cursor-pointer select-none rounded-[3px] align-baseline transition-colors",
+        revealed ? "" : SWATCH_CLASS[color],
+      ].join(" ")}
+      style={revealed ? undefined : { width: `${Math.max(word.length, 2)}ch`, height: "1em" }}
+    >
+      {revealed ? word : ""}
+    </span>
+  );
+}
+
+
 function Toolbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
